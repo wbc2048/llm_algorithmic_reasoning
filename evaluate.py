@@ -203,7 +203,8 @@ def main(base_paths, graph_sizes):
                     # print("c/p string:", str_builder)
     
     # evaluation_output_dir = os.path.join(base_path, "evaluation")
-    evaluation_output_dir = os.path.join("/local/ataylor2/algorithmic_reasoning/evaluation")
+    # evaluation_output_dir = os.path.join("/local/ataylor2/algorithmic_reasoning/evaluation")
+    evaluation_output_dir = os.path.join("C:/Users\/wangb/OneDrive/Desktop/wbc2048_llm_algorithmic_reasoning/data_generation/evaluation")
     os.makedirs(evaluation_output_dir, exist_ok=True)
     
     train_utils.save_results_to_csv(aggregated_results.values(), os.path.join(evaluation_output_dir, 'aggregated_results.csv'))

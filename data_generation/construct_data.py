@@ -83,6 +83,47 @@ def _translate_dijkstra_hints(hints_dict, source):
             hints.append(f"Distances: {distances}")
     return hints, distances
 
+def _translate_bellman_ford_hints(hints_dict, source):
+    d = hints_dict["d"]["data"]
+    pi = hints_dict["pi_h"]["data"]
+    msk = hints_dict["msk"]["data"]
+
+    hints = []
+    N = d.shape[0]
+    nodes = d.shape[2]
+    optimal_distance = []
+
+    accumulative_mask = [0] * nodes
+    all_relaxed_edges = set()
+
+    for i in range(N):
+        relaxed_edges = []
+        for u in range(nodes):
+            for v in range(nodes):
+                if msk[i, 0, u] and pi[i, 0, v] == u and d[i, 0, u] != float('inf'):
+                    edge = (u, v, d[i, 0, u] + d[i, 0, v])
+                    if edge not in all_relaxed_edges:
+                        relaxed_edges.append(edge)
+                        all_relaxed_edges.add(edge)
+                    accumulative_mask[v] = 1
+        for j in range(nodes):
+            if accumulative_mask[j] == 0:
+                d[i, 0, j] = float('inf')
+        # if i != 0:
+        if relaxed_edges:
+            hints.append(f"Step {i}:\nRelaxed Edges: {relaxed_edges} \nPredecessors: {pi[i, 0, :].tolist()}")
+            hints.append(f"Distances: {d[i, 0, :].tolist()}")
+            optimal_distance = d[i, 0, :]
+        else:
+            hints.append(f"Step {i}:\nRelaxed Edges: {relaxed_edges} \nPredecessors: {pi[i-1, 0, :].tolist()}")
+            hints.append("No more edges to relax. The algorithm terminates.")
+            break
+    # print("Translated Hints:") #for debugging
+    # for i in range(len(hints)):
+    #     print(hints[i])
+    # print("\n")        
+    return hints, optimal_distance
+
 def _translate_mst_prim_hints(hints_dict, source):
     key = hints_dict["key"]["data"]
     pi_h = hints_dict["pi_h"]["data"]
@@ -354,7 +395,7 @@ def translate_outputs(alg, outputs, final_d=None):
     elif alg in ["dka", "bfd"]:
         #potentially weighted graph algorithms
         raise NotImplementedError(f"[WILL BE REPLACED] No hint translation functionality has been implemented for {alg}")
-    elif alg in ['dijkstra', 'floyd_warshall']:
+    elif alg in ['dijkstra', 'floyd_warshall', 'bellman_ford']:
         return f"Distances: {final_d}"
     elif alg == "mst_prim":
         return f"MST Edges: {final_d}"
@@ -382,6 +423,8 @@ def translate_hints(alg, neg_edges, edgelist_lookup, hints, source=None):
         return _translate_dijkstra_hints(hints_dict, source)
     elif alg == "mst_prim": 
         return _translate_mst_prim_hints(hints_dict, source)
+    elif alg == "bellman_ford":
+        return _translate_bellman_ford_hints(hints_dict, source)
     else:
         raise NotImplementedError(f"No hint translation functionality has been implemented for {alg}")
 
@@ -396,7 +439,7 @@ def _translate_inputs(alg, inputs):
 
         source = _translate_source_node(inputs_dict["s"]["data"]) 
         return algorithm, list_edge, source
-    elif alg in ["floyd_warshall", "dijkstra", "mst_prim"]:
+    elif alg in ["floyd_warshall", "dijkstra", "mst_prim", "bellman_ford"]:
         algorithm = alg
         adj_matrix = np.squeeze(inputs_dict["adj"]["data"])
         weights = np.squeeze(inputs_dict["A"]["data"])
@@ -470,7 +513,7 @@ def sample_data(args):
             if edgelist_hash in unique_graphs:
                 continue
             
-            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs"]:
+            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs", "bellman_ford"]:
                 hints, final_d = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), train_sample.features.hints, source=inputs[2])
 
                 outputs = translate_outputs(args.algorithm, train_sample.outputs, final_d)
@@ -496,7 +539,7 @@ def sample_data(args):
             if edgelist_hash in unique_graphs:
                 continue
 
-            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs"]:
+            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs", "bellman_ford"]:
                 hints, final_d = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), test_sample.features.hints, source=inputs[2])
 
                 outputs = translate_outputs(args.algorithm, test_sample.outputs, final_d)
@@ -528,10 +571,119 @@ def sample_data(args):
         print(f"Sampling complete for graph size: {graph_size}")
         
         _write_data(args.output_formats, clrs_data_dir, dict_llm_data_dir, clrs_training_data, clrs_validation_data, clrs_testing_data, trans_training_data, trans_validation_data, trans_testing_data)
+
+def debug_sample_data(args, debug_mode=True):
+    clrs_training_data = {}
+    clrs_validation_data = {}
+    clrs_testing_data = {}
+    
+    trans_training_data = {}
+    trans_validation_data = {}
+    trans_testing_data = {}
+    
+    graph_sizes = args.graph_sizes
+    
+    # Debug mode configuration
+    if debug_mode:
+        debug_training_instances = 2
+        debug_evaluation_instances = 2
+        graph_sizes = [6]
+    
+    for graph_size in graph_sizes:
+        unique_graphs = set()
+        clrs_data_dir, dict_llm_data_dir = data_utils.resolve_output_dirs(args.output_dir, args.algorithm, args.output_formats, graph_size)
+        training_instances = (data_utils.TRAIN_TEST_SPLIT[graph_size][0] if graph_size in data_utils.TRAIN_TEST_SPLIT else args.train_test_split[0])
+        evaluation_instances = (data_utils.TRAIN_TEST_SPLIT[graph_size][1] if graph_size in data_utils.TRAIN_TEST_SPLIT else args.train_test_split[1])
+
+        if debug_mode:
+            training_instances = debug_training_instances
+            evaluation_instances = debug_evaluation_instances
+        
+        data_smp, spec = smp.build_sampler(args.algorithm, num_samples=-1, length=graph_size, seed=args.seed)
+        data_smp_iter = _iterate_sampler(data_smp, batch_size=1)
+        
+        valid_train_idx = 0
+        valid_eval_idx = 0
+        
+        while valid_train_idx < training_instances:
+            train_sample = next(data_smp_iter)
+            inputs = _translate_inputs(args.algorithm, train_sample.features.inputs)
+
+            if debug_mode:
+                print("Input:\n", inputs)
+                # print("Untranslated Hints:\n", train_sample.features.hints)
+                print("\n")
+            
+            edgelist_hash = hash_edgelist(inputs[1])
+            if edgelist_hash in unique_graphs:
+                continue
+            
+            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs", "bellman_ford"]:
+                hints, final_d = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), train_sample.features.hints, source=inputs[2])
+                outputs = translate_outputs(args.algorithm, train_sample.outputs, final_d)
+            else:
+                hints = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), train_sample.features.hints, source=inputs[2])
+                outputs = translate_outputs(args.algorithm, train_sample.outputs)
+            
+            clrs_training_data[valid_train_idx] = train_sample
+            trans_training_data[valid_train_idx] = {
+                "inputs": inputs,
+                "hints": hints,
+                "outputs": outputs
+            }
+            
+            unique_graphs.add(edgelist_hash)
+            valid_train_idx += 1
+
+        while valid_eval_idx < evaluation_instances:
+            test_sample = next(data_smp_iter)
+            inputs = _translate_inputs(args.algorithm, test_sample.features.inputs)
+
+            if debug_mode:
+                print("Input:\n", inputs)
+                print("\n")
+
+            edgelist_hash = hash_edgelist(inputs[1])
+            if edgelist_hash in unique_graphs:
+                continue
+
+            if args.algorithm in ["floyd_warshall", "dijkstra", "mst_prim", "dfs", "bellman_ford"]:
+                hints, final_d = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), test_sample.features.hints, source=inputs[2])
+                outputs = translate_outputs(args.algorithm, test_sample.outputs, final_d)
+            elif args.algorithm in ["bfs"]:
+                hints = translate_hints(args.algorithm, args.neg_edges, set(inputs[1]), test_sample.features.hints)
+                outputs = translate_outputs(args.algorithm, test_sample.outputs)
+            else:
+                hints = translate_hints(args.algorithm, args.neg_edges, set(inputs[0]), test_sample.features.hints, source=inputs[2])
+                outputs = translate_outputs(args.algorithm, test_sample.outputs)
+
+            if valid_eval_idx < evaluation_instances // 2:
+                clrs_validation_data[valid_eval_idx] = test_sample
+                trans_validation_data[valid_eval_idx] = {
+                    "inputs": inputs,
+                    "hints": hints,
+                    "outputs": outputs
+                }
+            else:
+                test_idx = valid_eval_idx % (evaluation_instances // 2)
+                clrs_testing_data[test_idx] = test_sample
+                trans_testing_data[test_idx] = {
+                    "inputs": inputs,
+                    "hints": hints,
+                    "outputs": outputs
+                }
+            
+            unique_graphs.add(edgelist_hash)
+            valid_eval_idx += 1
+        print(f"Sampling complete for graph size: {graph_size}")
+        
+        _write_data(args.output_formats, clrs_data_dir, dict_llm_data_dir, clrs_training_data, clrs_validation_data, clrs_testing_data, trans_training_data, trans_validation_data, trans_testing_data)
+
     
 def main():
     args = data_utils.parse_args()
     sample_data(args)
+    # debug_sample_data(args)
     
 if __name__ == "__main__":
     main()
