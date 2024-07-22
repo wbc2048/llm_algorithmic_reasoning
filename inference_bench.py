@@ -73,7 +73,7 @@ verbose = args.verbose
 llm_path = llm_name
 lora_path = None
 chat_type = "chat_gpt" if llm_name == "gpt-4o" else "chat" + chat_suffix 
-lora_base_path = f'/local2/ataylor2/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}'
+lora_base_path = f'/local2/wbc2048/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}'
 for item in os.listdir(lora_base_path):
     if "checkpoint-" in item:
         lora_path = os.path.join(lora_base_path, item)
@@ -119,7 +119,7 @@ if lora_path:
 
 # chat_type = "chat_gpt" if llm_name == 'gpt-4o' else "chat" + chat_suffix 
 
-evaldata_save_path = f'/local2/ataylor2/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/evaluation'
+evaldata_save_path = f'/local2/wbc2048/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/evaluation'
 print("evaldata_save_path", evaldata_save_path)
 batch_proc = False
 char_per_token_est = 2 # -1, 4, 3, 2
@@ -515,6 +515,6 @@ if mode == 'inference':
                     else:
                         print(output["pred"])
         
-    print("Dumping results:", f"/local2/ataylor2/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/{save_name}_inference.json")    
-    with open(f"/local2/ataylor2/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/{save_name}_inference.json", 'w', encoding='utf-8') as f:
+    print("Dumping results:", f"/local2/wbc2048/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/{save_name}_inference.json")    
+    with open(f"/local2/wbc2048/algorithmic_reasoning/{target_task}/graph_size_{graph_size}/llm_data/{chat_type}/{reasoning_strategy}/{save_name}_inference.json", 'w', encoding='utf-8') as f:
         json.dump(results_2, f, indent=4)

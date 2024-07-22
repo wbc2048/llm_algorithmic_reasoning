@@ -203,8 +203,7 @@ def main(base_paths, graph_sizes):
                     # print("c/p string:", str_builder)
     
     # evaluation_output_dir = os.path.join(base_path, "evaluation")
-    # evaluation_output_dir = os.path.join("/local/ataylor2/algorithmic_reasoning/evaluation")
-    evaluation_output_dir = os.path.join("C:/Users\/wangb/OneDrive/Desktop/wbc2048_llm_algorithmic_reasoning/data_generation/evaluation")
+    evaluation_output_dir = os.path.join("/local/wbc2048/algorithmic_reasoning/evaluation")
     os.makedirs(evaluation_output_dir, exist_ok=True)
     
     train_utils.save_results_to_csv(aggregated_results.values(), os.path.join(evaluation_output_dir, 'aggregated_results.csv'))
@@ -218,7 +217,7 @@ def main(base_paths, graph_sizes):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Read configuration JSON file')
-    parser.add_argument("--base_paths", default=["/local2/ataylor2/algorithmic_reasoning", "/local/ataylor2/algorithmic_reasoning"], type=list)
+    parser.add_argument("--base_paths", default=["/local2/wbc2048/algorithmic_reasoning", "/local/wbc2048/algorithmic_reasoning"], type=list)
     parser.add_argument("-graph_sizes", "--graph_sizes", type=list, default=[5,6,7,8,9,10,11,12,13,14,15,20,50], help="Number of nodes present in the graphs generated. Default behavior sets num_samples to the number of training datapoints.")
     args = parser.parse_args()
     
